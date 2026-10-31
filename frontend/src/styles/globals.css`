@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surface Tokens - Monochrome Base */
+  --color-surface-primary-light: #FFFFFF;
+  --color-surface-primary-dark: #0A0A0A;
+  --color-surface-secondary-light: #F5F5F7;
+  --color-surface-secondary-dark: #171717;
+  --color-surface-tertiary-light: #E5E5EA;
+  --color-surface-tertiary-dark: #262626;
+
+  /* Foreground Tokens */
+  --color-foreground: #1A1A1A;
+  --color-foreground-dark: #F5F5F5;
+  --color-muted-foreground: #71717A;
+
+  /* Accent Tokens - High Contrast */
+  --color-accent-primary: #4F46E5;
+  --color-accent-primary-hover: #4338CA;
+  --color-accent-ai: #8B5CF6;
+
+  /* Semantic Tokens */
+  --color-semantic-success: #10B981;
+  --color-semantic-warning: #F59E0B;
+  --color-semantic-error: #EF4444;
+  --color-semantic-info: #3B82F6;
+
+  /* Typography */
+  --font-sans: "Inter", "Geist", "ui-sans-serif", "system-ui";
+  --font-mono: "JetBrains Mono", "Roboto Mono", "ui-monospace", "SFMono-Regular";
+
+  /* Spacing System - 8px Base */
+  --spacing-safe: 8px;
+  --spacing-xs: 8px;
+  --spacing-sm: 16px;
+  --spacing-md: 24px;
+  --spacing-lg: 32px;
+  --spacing-xl: 48px;
+  --spacing-2xl: 64px;
+
+  /* Border Radius */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+@layer base {
+  body {
+    @apply bg-surface-primary-light dark:bg-surface-primary-dark text-foreground dark:text-foreground-dark font-sans antialiased;
+
+    /* Dynamic fallback for contrast: Use a CSS variable that changes based on theme */
+    color: var(--foreground-dynamic, var(--color-foreground));
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Ensure the dynamic foreground variable is set based on the theme */
+  :root {
+    --foreground-dynamic: var(--color-foreground);
+  }
+
+  .dark {
+    --foreground-dynamic: var(--color-foreground-dark);
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-white/70 dark:bg-surface-primary-dark/70 backdrop-blur-md border border-surface-tertiary-light dark:border-surface-tertiary-dark;
+  }
+}

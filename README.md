@@ -32,12 +32,12 @@ Backend engine and UI are built. [One line on where wiring or API integration st
 
 ## Run it locally
 1. `pip install -r requirements.txt`
-2. [Add your backend start command]
-3. [Add your frontend install and start commands]
+2. backend: uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+3. cd frontend, then npm install, then npm run dev
 
 ## What worked and what didn't
-- **Worked:** [e.g. grading roles before applying, or the diff review screen keeping the user in control]
-- **Didn't:** [e.g. a job board that blocked scraping, or AI output that ignored the design tokens until I reviewed the code]
+- **Worked:** Scoring each role against the CV and only keeping the ones above the match threshold, and the review screen, which shows the drafted answers and cover letter so you approve them and click Submit yourself.
+- **Didn't:** Indeed and Greenhouse often blocked or hid the form (Cloudflare, the cookie banner, the application sitting in an iframe), and the cover letter fell back to a raw CV paste whenever the local model was not running.
 
 ## Screenshots
 [Add two or three screenshots of Command Center, The Hunt and the diff review screen]

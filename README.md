@@ -1,40 +1,43 @@
-# AI Job Agent - Full Stack Automation System
+# ModGent
 
-## Current State: 🚀 API Integration Phase
-The project has evolved from a headless automation engine to a professional, full-stack application. We have completed the "Bottom-Up" design process, ensuring the visual system is locked-in and the backend engine is robust before the final wiring.
+An AI job agent that finds roles, grades how well each one fits you, pre-fills your saved application details, and stops so you can review and submit. You never apply to roles you're not qualified for by accident.
 
-### 1. Design System & UI (Complete)
-We implemented a strict "Engineering-led Monochrome" aesthetic (inspired by Linear and Vercel) to ensure professional consistency:
-- **Tokens**: Source of truth for colors (Deep Indigo accents, neutral surfaces), typography (Geist/Inter & JetBrains Mono), and a strict 8px spacing base unit.
-- **Component Library**: A tiered React library:
-    - **Atoms**: `Button`, `StatusBadge`, `Input`, `ConfidenceIndicator`.
-    - **Molecules**: `JobCard` (high-density summaries), `AgentLogEntry` (machine-thought feed).
-    - **Organisms**: `ApplicationStepper` (process tracking) and `DiffReviewModal` (AI-human approval interface).
-- **Architecture**: SPA with a job-centric information architecture:
-    - **Command Center**: Priority-focused dashboard for immediate actions.
-    - **The Hunt**: Master job board with advanced filtering.
-    - **The Lab**: Candidate intelligence and profile management.
-    - **The Ledger**: Transparent audit trail of agent activities.
+## The problem
+Applying widely wastes time, and most of it goes to roles that were never a fit. ModGent scores every listing against your profile first, so your effort goes only to roles worth applying for.
 
-### 2. Backend Automation Engine (Complete)
-A robust data pipeline that automates the job discovery and application process:
-- **Profiling**: PDF CV parsing and skill ranking.
-- **Discovery**: Async Playwright scraping of multiple job boards.
-- **Intelligence**: Semantic match scoring and LLM-powered application tailoring (Llama 3.2).
-- **Persistence**: Durable tracking via SQLModel and SQLite.
+## How it works
+1. **Profile:** parses your PDF CV and ranks your skills.
+2. **Discover:** scrapes multiple job boards asynchronously with Playwright.
+3. **Grade:** gives each job a semantic match score against your profile.
+4. **Tailor and pre-fill:** an LLM (Llama 3.2) tailors your application, and your saved fields are filled in.
+5. **Review:** a diff review screen shows what the agent changed, and you approve it. The agent waits for you to submit.
 
-### 3. Technical Stack
-- **Frontend**: React + Tailwind CSS + Lucide React + Vite.
-- **Backend**: FastAPI + SQLModel + Async Playwright.
-- **Database**: SQLite.
+## Design
+I designed the product and the UI myself, then built it with AI coding tools (Claude Code and Cursor).
+- **Design system:** tokens for colour, typography and a strict 8px spacing unit, in an "engineering-led monochrome" style inspired by Linear and Vercel.
+- **Component library (React):** atoms (Button, StatusBadge, Input, ConfidenceIndicator), molecules (JobCard, AgentLogEntry) and organisms (ApplicationStepper, DiffReviewModal).
+- **Information architecture:** four job-centred views:
+  - **Command Center:** priority actions.
+  - **The Hunt:** the master job board with filters.
+  - **The Lab:** your profile and candidate intelligence.
+  - **The Ledger:** a transparent audit trail of everything the agent did.
 
-## Roadmap Status
-- [x] **Backend: API & Automation Engine**
-- [x] **Frontend: Design System & Tokens**
-- [x] **Frontend: Atomic Component Library**
-- [x] **Frontend: Page Layouts & IA**
-- [ ] **Frontend: API Integration (Connecting UI to Backend)**
-- [ ] **Final E2E Testing & Polishing**
+## Stack
+- **Backend:** Python, Playwright, SQLModel, SQLite
+- **Frontend:** TypeScript, React
+- **AI:** Llama 3.2 for application tailoring
 
-## Next Step: API Integration
-The final phase is replacing mock data with real-time data from the FastAPI server, enabling the user to trigger actual job searches and manage applications directly through the UI.
+## Status
+Backend engine and UI are built. [One line on where wiring or API integration stands today.]
+
+## Run it locally
+1. `pip install -r requirements.txt`
+2. [Add your backend start command]
+3. [Add your frontend install and start commands]
+
+## What worked and what didn't
+- **Worked:** [e.g. grading roles before applying, or the diff review screen keeping the user in control]
+- **Didn't:** [e.g. a job board that blocked scraping, or AI output that ignored the design tokens until I reviewed the code]
+
+## Screenshots
+[Add two or three screenshots of Command Center, The Hunt and the diff review screen]

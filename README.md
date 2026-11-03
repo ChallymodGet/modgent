@@ -99,7 +99,7 @@ Interactive API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - **Indeed / Cloudflare / cookie banners** — May require manual checks; `human_check.py` only clicks visible challenge checkboxes (no token forging).
 - **ATS quirks** — React-select comboboxes need field-specific option reads; phone-country lists must not attach to unrelated questions (see `form_filler.py`).
 - **Single profile lock** — Close stray Edge windows before Apply/Continue if you see “browser session already in use”.
-- **Legacy / noise** — `src/Lesson/` are learning scripts; root `main.py` is a stub. There is no `src/Agent/main.py`; orchestration is API-driven.
+- **Legacy / noise** — `scripts/lessons/` are learning scripts and `scripts/experiments/` are manual Playwright probes. There is no `main.py` entrypoint; orchestration is API-driven.
 
 ## For AI assistants continuing this repo
 

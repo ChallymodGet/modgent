@@ -25,7 +25,7 @@ Restart uvicorn after Python file changes (project is often run without `--reloa
 
 ### Obsolete commands (do not use)
 
-- `python src/Agent/main.py` — **file does not exist**; pipeline is triggered via FastAPI (`POST /automation/discovery`) or legacy Lesson scripts.
+- `python src/Agent/main.py` — **file does not exist**; pipeline is triggered via FastAPI (`POST /automation/discovery`).
 
 ## Architecture
 
@@ -65,7 +65,7 @@ browser_profile/        # Edge user data (gitignored)
 data/cv/                # Uploaded CVs (gitignored)
 ```
 
-`src/Lesson/` — experimental scripts; not part of the shipped app.
+`scripts/lessons/` (tutorials) and `scripts/experiments/` (manual Playwright probes) are not part of the shipped app.
 
 ## Design tokens (UI)
 

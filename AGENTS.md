@@ -93,9 +93,8 @@ Database bootstrap: `init_db()` on startup; `_migrate_add_missing_columns()` add
 ## Tests and legacy
 
 - **`tests/`** — Unit tests for pure helpers only (`pipeline`, `job_scorer`, `form_filler` matching). Playwright/apply flows are not covered. `xfail(strict=True)` tests mark known bugs.
-- **`src/Lesson/`** — Tutorial scripts; ignore for product behavior.
-- **`src/Agent/test_*.py`** — Manual Playwright experiments; not CI.
-- Root **`main.py`** — Placeholder print only.
+- **`scripts/lessons/`** — Tutorial scripts; ignore for product behavior.
+- **`scripts/experiments/`** — Manual Playwright experiments (open a real browser on run); not CI. Run from repo root with `python -m scripts.experiments.<name>` so `src` imports resolve.
 - **`CLAUDE.md`** previously referenced `src/Agent/main.py` and `database.py` — those paths are **obsolete**; use `src/api/models.py` and the API.
 
 ## Safe change checklist

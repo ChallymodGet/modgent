@@ -32,8 +32,18 @@ Backend engine and UI are built. [One line on where wiring or API integration st
 
 ## Run it locally
 1. `pip install -r requirements.txt`
-2. backend: uvicorn src.api.main:app --host 127.0.0.1 --port 8000
-3. cd frontend, then npm install, then npm run dev
+2. backend: `python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000`
+3. `cd frontend`, then `npm install`, then `npm run dev`, and open [http://localhost:5173](http://localhost:5173)
+
+Use `python -m` for `uvicorn`, `pytest`, and `playwright`: on managed Windows machines the `.exe` launchers in `.venv\Scripts` can be blocked with “Access is denied”.
+
+### Setup details
+- **Prerequisites:** Python 3.11+, Node.js 20+, Microsoft Edge (`python -m playwright install msedge`), and [Ollama](https://ollama.com) running `llama3.2` (`ollama serve`) for cover letters and open-ended answers.
+- **First run:** open **The Lab**, upload your PDF CV, and set target roles, search location, minimum match score and recurring answers.
+- **Browser profiles:** discovery uses `browser_profile/search_session` and applying uses `browser_profile/app_session`. Close stray Edge windows if you see “browser session already in use”.
+- **Personal data stays local and gitignored:** `jobs.db`, `data/`, `browser_profile/`, `.env`.
+- **Tests:** `python -m pytest`.
+- **Contributing or using an AI assistant:** read [AGENTS.md](./AGENTS.md) for the product rules, apply state machine, API surface and safe-change checklist.
 
 ## What worked and what didn't
 - **Worked:** Scoring each role against the CV and only keeping the ones above the match threshold, and the review screen, which shows the drafted answers and cover letter so you approve them and click Submit yourself.

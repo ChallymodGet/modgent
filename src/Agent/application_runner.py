@@ -381,8 +381,7 @@ async def apply_to_job(
     """
     job = session.get(Job, job_id)
     if not job:
-        print(f"Job {job_id} not found in database.")
-        return
+        raise RuntimeError("Job not found")
 
     print(f"\n{'='*60}")
     print(f"Opening application: {job.company} - {job.title}")

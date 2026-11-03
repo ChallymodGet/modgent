@@ -14,7 +14,7 @@ This document is for **you** (another AI or developer) picking up work on ModGen
 
 ```bash
 # Backend (repo root)
-uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
 
 # Frontend
 cd frontend && npm install && npm run dev

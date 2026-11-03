@@ -11,15 +11,15 @@ This is the user’s **personal** job tool. **Never implement auto-submit.** The
 ### Development
 
 - **Run API (primary entrypoint):**  
-  `uvicorn src.api.main:app --host 127.0.0.1 --port 8000`
+  `python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000`
 - **Run frontend:**  
   `cd frontend && npm run dev` → [http://localhost:5173](http://localhost:5173)
 - **Ollama (local LLM):**  
   `ollama serve` — model name in code: `llama3.2` (`src/Agent/ai_generator.py`)
 - **Playwright browsers (once):**  
-  `playwright install msedge`
+  `python -m playwright install msedge`
 - **Tests:**  
-  `pytest` — unit tests for pure helpers (scoring, dedupe, form-field matching) in `tests/`; no browser or network needed.
+  `python -m pytest` — unit tests for pure helpers (scoring, dedupe, form-field matching) in `tests/`; no browser or network needed.
 
 Restart uvicorn after Python file changes (project is often run without `--reload`).
 

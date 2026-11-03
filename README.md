@@ -18,7 +18,7 @@ First-time setup:
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-playwright install msedge
+python -m playwright install msedge
 
 cd frontend
 npm install
@@ -31,8 +31,10 @@ Optional: copy `.env` from `.env.example` if you add one later; defaults live in
 **Backend** (from repo root, venv active):
 
 ```bash
-uvicorn src.api.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
 ```
+
+Use `python -m` for `uvicorn`, `pytest`, and `playwright`: on managed Windows machines the `.exe` launchers in `.venv\Scripts` can be blocked with “Access is denied”.
 
 Restart uvicorn after Python changes (no `--reload` in production use).
 

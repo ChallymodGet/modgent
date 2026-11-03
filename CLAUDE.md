@@ -19,7 +19,7 @@ This is the user’s **personal** job tool. **Never implement auto-submit.** The
 - **Playwright browsers (once):**  
   `playwright install msedge`
 - **Tests:**  
-  `pytest` — *no `tests/` directory in repo yet*; add tests under `tests/` if you extend coverage.
+  `pytest` — unit tests for pure helpers (scoring, dedupe, form-field matching) in `tests/`; no browser or network needed.
 
 Restart uvicorn after Python file changes (project is often run without `--reload`).
 

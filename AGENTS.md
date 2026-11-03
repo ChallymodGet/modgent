@@ -92,7 +92,7 @@ Database bootstrap: `init_db()` on startup; `_migrate_add_missing_columns()` add
 
 ## Tests and legacy
 
-- **`tests/`** — Not present in the public repo; do not assume pytest coverage exists.
+- **`tests/`** — Unit tests for pure helpers only (`pipeline`, `job_scorer`, `form_filler` matching). Playwright/apply flows are not covered. `xfail(strict=True)` tests mark known bugs.
 - **`src/Lesson/`** — Tutorial scripts; ignore for product behavior.
 - **`src/Agent/test_*.py`** — Manual Playwright experiments; not CI.
 - Root **`main.py`** — Placeholder print only.

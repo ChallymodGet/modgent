@@ -43,7 +43,7 @@ Open-ended answers and cover letters call **Ollama** on the machine (`llama3.2`)
 | Match scoring + dedupe on discovery | Done |
 | Human review modal + learned answers | Done |
 | Greenhouse-style embeds + Indeed handoff | Worked in development; site changes break often |
-| Automated test suite in repo | Not shipped |
+| Automated test suite in repo | Unit tests for pure helpers; no browser/apply coverage |
 | Production deploy / auth | Out of scope (local tool) |
 
 ## Operational notes for maintainers

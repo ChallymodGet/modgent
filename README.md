@@ -1,112 +1,53 @@
-# ModGent (AI Job Agent)
+# ModGent
 
-ModGent is a full-stack job discovery and **assisted** application tool. It scrapes boards, scores listings against your CV, opens real employer application forms in Microsoft Edge, pre-fills what it can, drafts open-ended answers and cover letters with a **local** LLM (Ollama), and stops for your review. **It never clicks Submit** — you submit and mark the job Applied in the UI.
+An AI job agent that finds roles, grades how well each one fits you, pre-fills your saved application details, and stops so you can review and submit. You never apply to roles you're not qualified for by accident.
 
-Public repo: [github.com/ChallymodGet/modgent](https://github.com/ChallymodGet/modgent)
+## The problem
+Applying widely wastes time, and most of it goes to roles that were never a fit. ModGent scores every listing against your profile first, so your effort goes only to roles worth applying for.
 
-## Prerequisites
+## How it works
+1. **Profile:** parses your PDF CV and ranks your skills.
+2. **Discover:** scrapes multiple job boards asynchronously with Playwright.
+3. **Grade:** gives each job a semantic match score against your profile.
+4. **Tailor and pre-fill:** an LLM (Llama 3.2) tailors your application, and your saved fields are filled in.
+5. **Review:** a diff review screen shows what the agent changed, and you approve it. The agent waits for you to submit.
 
-- **Python 3.11+** (project has been run on 3.14)
-- **Node.js 20+** for the frontend
-- **Microsoft Edge** (Playwright uses `channel="msedge"`)
-- **Ollama** with `llama3.2` (or `llama3.2:latest`) for cover letters and open-ended answers  
-  Run `ollama serve` before apply flows that need AI text.
+## Design
+I designed the product and the UI myself, then built it with AI coding tools (Claude Code and Cursor).
+- **Design system:** tokens for colour, typography and a strict 8px spacing unit, in an "engineering-led monochrome" style inspired by Linear and Vercel.
+- **Component library (React):** atoms (Button, StatusBadge, Input, ConfidenceIndicator), molecules (JobCard, AgentLogEntry) and organisms (ApplicationStepper, DiffReviewModal).
+- **Information architecture:** four job-centred views:
+  - **Command Center:** priority actions.
+  - **The Hunt:** the master job board with filters.
+  - **The Lab:** your profile and candidate intelligence.
+  - **The Ledger:** a transparent audit trail of everything the agent did.
 
-First-time setup:
+## Stack
+- **Backend:** Python, Playwright, SQLModel, SQLite
+- **Frontend:** TypeScript, React
+- **AI:** Llama 3.2 for application tailoring
 
-```bash
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-pip install -r requirements.txt
-python -m playwright install msedge
+## Status
+Backend engine and UI are built. [One line on where wiring or API integration stands today.]
 
-cd frontend
-npm install
-```
-
-Optional: copy `.env` from `.env.example` if you add one later; defaults live in `src/api/config.py` and are overridden by the **Profile** row in SQLite after first launch.
-
-## Run locally
-
-**Backend** (from repo root, venv active):
-
-```bash
-python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000
-```
+## Run it locally
+1. `pip install -r requirements.txt`
+2. backend: `python -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000`
+3. `cd frontend`, then `npm install`, then `npm run dev`, and open [http://localhost:5173](http://localhost:5173)
 
 Use `python -m` for `uvicorn`, `pytest`, and `playwright`: on managed Windows machines the `.exe` launchers in `.venv\Scripts` can be blocked with “Access is denied”.
 
-Restart uvicorn after Python changes (no `--reload` in production use).
+### Setup details
+- **Prerequisites:** Python 3.11+, Node.js 20+, Microsoft Edge (`python -m playwright install msedge`), and [Ollama](https://ollama.com) running `llama3.2` (`ollama serve`) for cover letters and open-ended answers.
+- **First run:** open **The Lab**, upload your PDF CV, and set target roles, search location, minimum match score and recurring answers.
+- **Browser profiles:** discovery uses `browser_profile/search_session` and applying uses `browser_profile/app_session`. Close stray Edge windows if you see “browser session already in use”.
+- **Personal data stays local and gitignored:** `jobs.db`, `data/`, `browser_profile/`, `.env`.
+- **Tests:** `python -m pytest`.
+- **Contributing or using an AI assistant:** read [AGENTS.md](./AGENTS.md) for the product rules, apply state machine, API surface and safe-change checklist.
 
-**Frontend**:
+## What worked and what didn't
+- **Worked:** Scoring each role against the CV and only keeping the ones above the match threshold, and the review screen, which shows the drafted answers and cover letter so you approve them and click Submit yourself.
+- **Didn't:** Indeed and Greenhouse often blocked or hid the form (Cloudflare, the cookie banner, the application sitting in an iframe), and the cover letter fell back to a raw CV paste whenever the local model was not running.
 
-```bash
-cd frontend
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173). API base URL is hardcoded to [http://127.0.0.1:8000](http://127.0.0.1:8000) in `frontend/src/utils/api.ts`.
-
-Interactive API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-
-## Typical workflow
-
-1. **Profile (The Lab)** — Upload a PDF CV, set name, contact, target roles (comma-separated), search location, minimum match score, and recurring answers (work authorization, sponsorship, etc.).
-2. **Discovery** — Trigger a scan from the UI. The backend scrapes LinkedIn, Indeed, and Wellfound (see `src/Agent/scraper.py`), dedupes cross-listed postings, scores against CV skills, and saves jobs that meet `min_match_score`.
-3. **Apply** — Opens a **headed** Edge window with profile `browser_profile/app_session`. For Indeed external apply, the runner waits out interstitials and loads the employer ATS (Greenhouse, Lever, etc.).
-4. **Review** — When required fields or AI drafts need you, status becomes **Needs you**. Use the diff review modal: edit drafts, pick dropdown/checkbox options from the **site’s** list, approve the cover letter (upload happens after you save). **Cover letter answers are not stored as learned answers.**
-5. **Continue** — Reuses the same browser session via `session_registry` until the form reaches a review/submit step or pauses again.
-6. **Submit manually** — Click Submit in the browser yourself, then **Mark applied** in the UI (`PATCH /jobs/{id}?status=Applied`), which harvests fields you typed and closes the session.
-
-## Architecture (short)
-
-| Layer | Location | Role |
-|--------|-----------|------|
-| UI | `frontend/` | React 18, Vite 8, Tailwind v4, Command Center / Hunt / Lab / Ledger |
-| API | `src/api/main.py` | FastAPI, background tasks for discovery and apply |
-| Data | `src/api/models.py` | SQLModel + SQLite (`jobs.db`), Profile, jobs, tasks, answers, learned_answers |
-| Automation | `src/Agent/` | Playwright apply runner, form filler, scraper, scoring, CV parse |
-| AI | `src/Agent/ai_generator.py` | Ollama `http://localhost:11434`, model `llama3.2` |
-
-**Browser profiles** (gitignored):
-
-- `browser_profile/search_session` — discovery (mostly headless; Indeed may open headed for Cloudflare).
-- `browser_profile/app_session` — apply only; only one process can use a profile at a time.
-
-**Personal data** (gitignored):
-
-- `jobs.db`, `data/cv/`, `data/cover_letters/`, `.env`
-
-## Design system
-
-- Accent `#7C3AED`, hover `#6D28D9`, soft `#A78BFA`
-- Fonts: Inter (UI), JetBrains Mono (code/log)
-- Theme: light default; dark via `localStorage` key `jobagent-theme` (`frontend/src/hooks/useTheme.ts`)
-- Tokens in `frontend/src/styles/globals.css`
-
-## Job statuses
-
-`Not Reviewed`, `Needs you`, `Pending Review`, `Ready to Submit`, `Applied`, `Interviewing`, `Offer`, `Ghosted` — see `JobCard` / `StatusBadge` for UI grouping.
-
-## What works well
-
-- CV-based match scoring and deduped discovery before apply.
-- Human-in-the-loop review modal (draft vs your edit, site dropdown options, multi-select checkboxes).
-- Persistent apply sessions so Continue does not reopen a cold browser.
-- Greenhouse/Lever embed handling (iframe scope, cookie banners, no parent scroll-to-bottom).
-
-## Known pain points
-
-- **Ollama offline** — Cover letter / open-ended text falls back to weaker heuristics; keep `ollama serve` running.
-- **Indeed / Cloudflare / cookie banners** — May require manual checks; `human_check.py` only clicks visible challenge checkboxes (no token forging).
-- **ATS quirks** — React-select comboboxes need field-specific option reads; phone-country lists must not attach to unrelated questions (see `form_filler.py`).
-- **Single profile lock** — Close stray Edge windows before Apply/Continue if you see “browser session already in use”.
-- **Legacy / noise** — `scripts/lessons/` are learning scripts and `scripts/experiments/` are manual Playwright probes. There is no `main.py` entrypoint; orchestration is API-driven.
-
-## For AI assistants continuing this repo
-
-Read **[AGENTS.md](./AGENTS.md)** first — constraints, file map, apply state machine, and safe-change guidelines. **[CLAUDE.md](./CLAUDE.md)** mirrors commands and structure for Claude Code.
-
-## License
-
-Not specified in repo; treat as private author project unless a license file is added.
+## Screenshots
+[Add two or three screenshots of Command Center, The Hunt and the diff review screen]

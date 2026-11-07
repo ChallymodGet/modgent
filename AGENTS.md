@@ -8,7 +8,7 @@ This document is for **you** (another AI or developer) picking up work on ModGen
 2. **Do not build captcha/stealth bypass.** `src/Agent/human_check.py` may click a visible Cloudflare/Turnstile checkbox inside challenge iframes only.
 3. **Do not commit secrets or personal data.** `.gitignore` excludes `jobs.db`, `browser_profile/`, `data/`, `.env`, `*.pdf`, `*.docx`. Do not paste tokens or the user’s email/phone into docs or commits.
 4. **Cover letters are not learned answers.** `POST .../answers` must not call `remember_answer` for question “cover letter”.
-5. **Two browser profiles must stay separate.** Apply uses `browser_profile/app_session`; discovery uses `browser_profile/search_session`. Playwright `launch_persistent_context` cannot share one folder between two running browsers.
+5. **Browser profiles must stay separate.** Apply uses `browser_profile/app_session`. Discovery runs boards in parallel, one profile each: `search_linkedin`, `search_session` (Indeed, keeps its cleared human check), `search_wellfound`. Playwright `launch_persistent_context` cannot share one folder between two running browsers.
 
 ## Quick start commands
 
@@ -42,7 +42,7 @@ stateDiagram-v2
   HumanSubmit --> Applied: PATCH job status Applied
 ```
 
-**Task outcomes** (`src/api/main.py` `_OUTCOMES`): `needs_you`, `review`, `stopped`, `closed`. While the page loads, task `result` is `"Waiting for the application page to finish loading."` and `progress` is `{"phase":"loading"}` so the Activity panel stays **running**, not completed.
+**Task outcomes** (`src/api/main.py` `_OUTCOMES`): `needs_you`, `review`, `stopped`. If the user closed the window, `session_registry.drop_if_closed` drops the dead session, Apply/Continue reopens it, and the result is prefixed with a "reopened" note (`progress.reopened = true`). Tasks left running when the server stops are marked failed at startup. While the page loads, task `result` is `"Waiting for the application page to finish loading."` and `progress` is `{"phase":"loading"}` so the Activity panel stays **running**, not completed.
 
 **Live session registry** (`src/Agent/session_registry.py`): Maps `job_id` → Playwright context/page. Required for Continue and for posting reviewed answers onto the same tab.
 
@@ -51,10 +51,11 @@ stateDiagram-v2
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | `/jobs`, `/jobs/{id}` | List / get jobs |
-| PATCH | `/jobs/{id}?status=` | Update status; `Applied` harvests + closes session |
+| PATCH | `/jobs/{id}?status=` | Update status (400 if not in `JOB_STATUSES`); `Applied` harvests + closes session; `Ghosted` closes session |
 | GET/PUT | `/profile` | Candidate settings |
 | POST | `/profile/cv` | PDF upload → `data/cv/cv_{uuid}.pdf`, filename on profile |
 | POST | `/automation/discovery` | Background scrape + score + save |
+| GET | `/automation/tasks` | Recent runs, newest first (feeds the Ledger) |
 | GET | `/automation/tasks/{task_id}` | Poll discovery/apply task |
 | POST | `/automation/apply/{job_id}` | Start apply (headed Edge) |
 | POST | `/automation/apply/{job_id}/continue` | Resume open session |

@@ -7,8 +7,8 @@ Applying widely wastes time, and most of it goes to roles that were never a fit.
 
 ## How it works
 1. **Profile:** parses your PDF CV and ranks your skills.
-2. **Discover:** scrapes multiple job boards asynchronously with Playwright.
-3. **Grade:** gives each job a semantic match score against your profile.
+2. **Discover:** searches LinkedIn, Indeed and Wellfound at the same time with Playwright, for each of your target roles.
+3. **Grade:** gives each job a 0–100 match score based on keywords: whether your target role is in the title and description, how many of your CV skills the listing mentions, and extra weight when it mentions your strongest skills.
 4. **Tailor and pre-fill:** an LLM (Llama 3.2) tailors your application, and your saved fields are filled in.
 5. **Review:** a diff review screen shows what the agent changed, and you approve it. The agent waits for you to submit.
 

@@ -48,10 +48,10 @@ export default function MainLayout() {
     }
   };
 
-  const handleMarkApplied = async (jobId: string) => {
+  const handleSetStatus = async (jobId: string, status: string) => {
     setNotice(null);
     try {
-      await apiRequest('PATCH', `/jobs/${jobId}`, { params: { status: 'Applied' } });
+      await apiRequest('PATCH', `/jobs/${jobId}`, { params: { status } });
       await refresh();
     } catch (err: any) {
       setNotice(err.message);
@@ -66,6 +66,7 @@ export default function MainLayout() {
   const handledDiscoveryTasks = useRef<Set<string>>(new Set());
   useEffect(() => {
     Object.values(tasks).forEach((task: any) => {
+      if (task.fromHistory) return;
       if (
         task.task_type === 'discovery' &&
         (task.status === 'completed' || task.status === 'failed') &&
@@ -213,14 +214,14 @@ export default function MainLayout() {
               isLoading={jobsLoading}
               onApply={handleApply}
               onContinue={handleContinue}
-              onMarkApplied={handleMarkApplied}
+              onSetStatus={handleSetStatus}
               scanning={tasks[activeTaskId || '']?.task_type === 'discovery' && tasks[activeTaskId || '']?.status === 'running'}
               scanProgress={parseScanProgress(tasks[activeTaskId || '']?.progress)}
               scanFallback={tasks[activeTaskId || '']?.result}
             />
           )}
           {activeTab === 'jobs' && (
-            <JobsView jobs={jobs} isLoading={jobsLoading} onApply={handleApply} onContinue={handleContinue} onMarkApplied={handleMarkApplied} />
+            <JobsView jobs={jobs} isLoading={jobsLoading} onApply={handleApply} onContinue={handleContinue} onSetStatus={handleSetStatus} />
           )}
           {activeTab === 'profile' && <ProfileView />}
           {activeTab === 'logs' && <LogsView logs={Object.values(tasks)} />}
@@ -254,7 +255,7 @@ function NavItem({ active, onClick, icon, label }: { active: boolean; onClick: (
   );
 }
 
-function JobTable({ jobs, onApply, onContinue, onMarkApplied }: { jobs: any[]; onApply: (id: string) => void; onContinue: (id: string) => void; onMarkApplied: (id: string) => void }) {
+function JobTable({ jobs, onApply, onContinue, onSetStatus }: { jobs: any[]; onApply: (id: string) => void; onContinue: (id: string) => void; onSetStatus: (id: string, status: string) => void }) {
   const groups = groupJobsByStatus(jobs);
   return (
     <div className="overflow-x-auto rounded-2xl border border-line bg-surface shadow-card">
@@ -276,7 +277,7 @@ function JobTable({ jobs, onApply, onContinue, onMarkApplied }: { jobs: any[]; o
               job={job}
               onApply={() => onApply(job.job_id)}
               onContinue={() => onContinue(job.job_id)}
-              onMarkApplied={() => onMarkApplied(job.job_id)}
+              onSetStatus={(status) => onSetStatus(job.job_id, status)}
             />
           ))}
         </div>
@@ -286,7 +287,7 @@ function JobTable({ jobs, onApply, onContinue, onMarkApplied }: { jobs: any[]; o
   );
 }
 
-function DashboardView({ jobs, logs, isLoading, onApply, onContinue, onMarkApplied, scanning, scanProgress, scanFallback }: { jobs: any[]; logs: any[]; isLoading: boolean; onApply: (id: string) => void; onContinue: (id: string) => void; onMarkApplied: (id: string) => void; scanning?: boolean; scanProgress?: ReturnType<typeof parseScanProgress>; scanFallback?: string }) {
+function DashboardView({ jobs, logs, isLoading, onApply, onContinue, onSetStatus, scanning, scanProgress, scanFallback }: { jobs: any[]; logs: any[]; isLoading: boolean; onApply: (id: string) => void; onContinue: (id: string) => void; onSetStatus: (id: string, status: string) => void; scanning?: boolean; scanProgress?: ReturnType<typeof parseScanProgress>; scanFallback?: string }) {
   const jobDates = useDateSelection(jobs, (job) => job.date_added);
   const logDates = useDateSelection(logs, addedAt);
   if (isLoading) return <LoadingState />;
@@ -314,7 +315,7 @@ function DashboardView({ jobs, logs, isLoading, onApply, onContinue, onMarkAppli
         ) : visibleJobs.length === 0 ? (
           <EmptyState message="Nothing was added on that date." />
         ) : (
-          <JobTable jobs={visibleJobs} onApply={onApply} onContinue={onContinue} onMarkApplied={onMarkApplied} />
+          <JobTable jobs={visibleJobs} onApply={onApply} onContinue={onContinue} onSetStatus={onSetStatus} />
         )}
       </section>
 
@@ -350,7 +351,7 @@ function DashboardView({ jobs, logs, isLoading, onApply, onContinue, onMarkAppli
   );
 }
 
-function JobsView({ jobs, isLoading, onApply, onContinue, onMarkApplied }: { jobs: any[]; isLoading: boolean; onApply: (id: string) => void; onContinue: (id: string) => void; onMarkApplied: (id: string) => void }) {
+function JobsView({ jobs, isLoading, onApply, onContinue, onSetStatus }: { jobs: any[]; isLoading: boolean; onApply: (id: string) => void; onContinue: (id: string) => void; onSetStatus: (id: string, status: string) => void }) {
   const jobDates = useDateSelection(jobs, (job) => job.date_added);
   if (isLoading) return <LoadingState />;
 
@@ -374,7 +375,7 @@ function JobsView({ jobs, isLoading, onApply, onContinue, onMarkApplied }: { job
       ) : visibleJobs.length === 0 ? (
         <EmptyState message="Nothing was added on that date." />
       ) : (
-        <JobTable jobs={visibleJobs} onApply={onApply} onContinue={onContinue} onMarkApplied={onMarkApplied} />
+        <JobTable jobs={visibleJobs} onApply={onApply} onContinue={onContinue} onSetStatus={onSetStatus} />
       )}
     </div>
   );
@@ -632,7 +633,7 @@ function LogsView({ logs }: { logs: any[] }) {
       <div className="mb-3 flex items-end justify-between gap-3">
         <div>
           <h3 className="text-sm font-medium tracking-tight text-ink">Ledger</h3>
-          <p className="mt-0.5 text-xs text-ink-soft">What the agent has done in this session.</p>
+          <p className="mt-0.5 text-xs text-ink-soft">Everything the agent has done, newest first.</p>
         </div>
         <DateFilter value={logDates.selected} dates={logDates.dates} onChange={logDates.setSelected} />
       </div>

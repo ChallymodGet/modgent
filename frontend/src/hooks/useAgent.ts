@@ -45,6 +45,28 @@ export function useAutomation() {
     }, 1500);
   };
 
+  // Past runs live in the database. Load them so the Ledger survives a
+  // refresh. `fromHistory` stops the page re-acting to old results (opening
+  // review windows, notices); runs still in progress are polled again.
+  useEffect(() => {
+    apiRequest('GET', '/automation/tasks')
+      .then((history: any[]) => {
+        setTasks(prev => {
+          const merged: Record<string, any> = {};
+          for (const task of history) merged[task.task_id] = { ...task, fromHistory: true };
+          return { ...merged, ...prev };
+        });
+        for (const task of history) {
+          if (task.status === 'pending' || task.status === 'running') {
+            if (task.task_type === 'discovery') setActiveTaskId(task.task_id);
+            pollTask(task.task_id);
+          }
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const triggerDiscovery = async () => {
     const data = await apiRequest('POST', '/automation/discovery');
     const taskId = data.task_id;

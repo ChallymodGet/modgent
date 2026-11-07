@@ -23,11 +23,17 @@ interface JobCardProps {
   };
   onApply?: () => void;
   onContinue?: () => void;
-  onMarkApplied?: () => void;
+  onSetStatus?: (status: string) => void;
   className?: string;
 }
 
 const waitingOnYou = new Set(['Pending Review', 'Ready to Submit', 'Needs you']);
+// What can happen after the user has applied. Set by hand; the agent never does.
+const nextSteps: Record<string, string[]> = {
+  Applied: ['Interviewing', 'Ghosted'],
+  Interviewing: ['Offer', 'Ghosted'],
+  Ghosted: ['Interviewing'],
+};
 const visibleActionCount = 2;
 const statusOrder = ['Needs you', 'Pending Review', 'Ready to Submit', 'Not Reviewed', 'Interviewing', 'Offer', 'Applied', 'Ghosted'];
 
@@ -49,17 +55,20 @@ export function groupJobsByStatus<T extends { status: string }>(jobs: T[]) {
     .map(([status, rows]) => ({ status, jobs: rows }));
 }
 
-export const JobCard = ({ job, onApply, onContinue, onMarkApplied, className }: JobCardProps) => {
+export const JobCard = ({ job, onApply, onContinue, onSetStatus, className }: JobCardProps) => {
   const waiting = waitingOnYou.has(job.status);
+  const steps = nextSteps[job.status];
   const actions: CardAction[] = waiting
     ? [
         { label: 'Continue', onClick: onContinue, variant: 'primary' },
         { label: 'Apply', onClick: onApply, variant: 'secondary' },
-        { label: 'Mark applied', onClick: onMarkApplied, variant: 'secondary' },
+        { label: 'Mark applied', onClick: () => onSetStatus?.('Applied'), variant: 'secondary' },
       ]
-    : job.status !== 'Applied'
-      ? [{ label: 'Apply', onClick: onApply, variant: 'primary' }]
-      : [];
+    : steps
+      ? steps.map((status) => ({ label: status, onClick: () => onSetStatus?.(status), variant: 'secondary' as const }))
+      : job.status === 'Not Reviewed'
+        ? [{ label: 'Apply', onClick: onApply, variant: 'primary' }]
+        : [];
   const visible = actions.slice(0, visibleActionCount);
   const overflow = actions.slice(visibleActionCount);
   return (

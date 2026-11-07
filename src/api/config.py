@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     # Separate from the logged-in apply profile. LinkedIn challenges that
     # saved login, and a signed-out profile can still read public listings.
     browser_search_profile_path: str = str(BASE_DIR / "browser_profile" / "search_session")
+    # Discovery searches every board at once, and a browser profile folder can
+    # only be open in one browser at a time, so each board gets its own.
+    # Indeed keeps search_session so its cleared human check carries over.
+    browser_linkedin_profile_path: str = str(BASE_DIR / "browser_profile" / "search_linkedin")
+    browser_wellfound_profile_path: str = str(BASE_DIR / "browser_profile" / "search_wellfound")
     browser_channel: str = "msedge"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

@@ -35,6 +35,28 @@ async def get_session(job_id: str) -> Optional[dict]:
         return _registry.get(job_id)
 
 
+async def drop_if_closed(job_id: str) -> bool:
+    """
+    The user can close the application window at any time. Forgets that
+    job's session if its page is gone, so callers reopen instead of driving
+    a dead page. Returns True when a closed session was dropped.
+    """
+    async with _lock:
+        entry = _registry.get(job_id)
+        if entry is None or not _page_closed(entry):
+            return False
+        _registry.pop(job_id, None)
+    await _teardown(entry)
+    return True
+
+
+def _page_closed(entry: dict) -> bool:
+    try:
+        return entry["page"].is_closed()
+    except Exception:
+        return True
+
+
 async def close_session(job_id: str) -> bool:
     async with _lock:
         entry = _registry.pop(job_id, None)

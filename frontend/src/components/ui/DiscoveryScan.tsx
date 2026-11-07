@@ -64,7 +64,9 @@ export function DiscoveryScan({ progress, fallback }: { progress: ScanProgress |
             const state = boards[board] || 'waiting';
             const count = counts[board];
             const active = state === 'reading' || state === 'opening' || state === 'check';
-            const label = phase === 'preparing'
+            const label = state === 'failed'
+              ? 'Failed'
+              : phase === 'preparing'
               ? 'Waiting'
               : phase === 'scoring'
                 ? 'Done'
@@ -82,7 +84,9 @@ export function DiscoveryScan({ progress, fallback }: { progress: ScanProgress |
                 <span className="flex items-center gap-2 text-ink">
                   <span
                     className={
-                      state === 'done' || phase === 'scoring'
+                      state === 'failed'
+                        ? 'h-1.5 w-1.5 rounded-full bg-danger'
+                        : state === 'done' || phase === 'scoring'
                         ? 'h-1.5 w-1.5 rounded-full bg-success'
                         : state === 'check'
                           ? 'h-1.5 w-1.5 rounded-full bg-warning'

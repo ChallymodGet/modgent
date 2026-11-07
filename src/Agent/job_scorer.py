@@ -16,80 +16,52 @@ def expand_grouped_skill(skill):
 
     return [skill]
 
+
+def contains_term(text, term):
+    """
+    Whole-word, case-insensitive match. "UI" must not match "build", and
+    terms with symbols such as "C++" or "Node.js" still match as written.
+    """
+    term = term.strip().lower()
+    if not term:
+        return False
+    return re.search(rf"(?<!\w){re.escape(term)}(?!\w)", text.lower()) is not None
+
+
+def skill_found(skill, description):
+    return any(contains_term(description, member) for member in expand_grouped_skill(skill))
+
+
 def score_job(job, roles, core_skills):
+    """
+    0–100 keyword match between a listing and the candidate.
 
-    normalized_roles = []
+    TITLE 30           — a target role appears in the job title.
+    SKILL COVERAGE 30  — share of the CV's core skills named in the description.
+    CORE STRENGTH 25   — the same matches, weighted by each skill's rank in the
+                         CV (core_skills arrive most-used first), so matching
+                         the candidate's strongest skills counts for more.
+    ROLE RELEVANCE 15  — a target role appears in the description.
+    """
+    roles = [role.strip() for role in roles if role.strip()]
+    skills = [skill.strip() for skill in core_skills if skill.strip()]
+    title = job["title"]
+    description = job["description"]
 
-    for role in roles:
-        normalized_roles.append(role.lower().strip())
+    title_score = 30 if any(contains_term(title, role) for role in roles) else 0
 
-    normalized_skills = []
+    matched = [skill_found(skill, description) for skill in skills]
 
-    for skill in core_skills:
-        normalized_skills.append(skill.lower().strip())
+    coverage_score = (sum(matched) / len(skills)) * 30 if skills else 0
 
-    job_title = job["title"].lower()
-    description = job["description"].lower()
-
-    # TITLE — 30%
-    title_matches = 0
-
-    for role in normalized_roles:
-        if role in job_title:
-            title_matches += 1
-
-    if title_matches > 0:
-        title_score = 30
-    else:
-        title_score = 0
-
-    # SKILLS — 30%
-    matched_skills = 0
-
-    for skill in normalized_skills:
-        expanded = expand_grouped_skill(skill)
-        found = any(member.lower() in description for member in expanded)
-        if found:
-            matched_skills += 1
-
-    if len(normalized_skills) > 0:
-        skills_score = (matched_skills / len(normalized_skills)) * 30
-    else:
-        skills_score = 0
-
-    # DESCRIPTION — 25%
-    description_matches = 0
-
-    for skill in normalized_skills:
-        expanded = expand_grouped_skill(skill)
-        found = any(member.lower() in description for member in expanded)
-        if found:
-            description_matches += 1
-
-    if len(normalized_skills) > 0:
-        description_score = (
-            description_matches / len(normalized_skills)
-        ) * 25
-    else:
-        description_score = 0
-
-    # ROLE RELEVANCE — 15%
-    role_matches_in_description = 0
-
-    for role in normalized_roles:
-        if role in description:
-            role_matches_in_description += 1
-
-    if role_matches_in_description > 0:
-        relevance_score = 15
-    else:
-        relevance_score = 0
-
-    total_score = (
-        title_score
-        + skills_score
-        + description_score
-        + relevance_score
+    # Rank weights: first skill weighs n, last weighs 1.
+    weights = range(len(skills), 0, -1)
+    total_weight = sum(weights)
+    strength_score = (
+        sum(weight for weight, hit in zip(weights, matched) if hit) / total_weight * 25
+        if total_weight else 0
     )
 
-    return round(total_score)
+    relevance_score = 15 if any(contains_term(description, role) for role in roles) else 0
+
+    return round(title_score + coverage_score + strength_score + relevance_score)

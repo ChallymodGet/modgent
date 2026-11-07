@@ -16,6 +16,18 @@ engine = create_engine(DB_PATH, echo=False)
 
 # --- Models ---
 
+# Every status a job can have. The agent sets the first four; the user sets the rest.
+JOB_STATUSES = (
+    "Not Reviewed",
+    "Needs you",
+    "Pending Review",
+    "Ready to Submit",
+    "Applied",
+    "Interviewing",
+    "Offer",
+    "Ghosted",
+)
+
 
 class Job(SQLModel, table=True):
     __tablename__ = "jobs"
@@ -223,6 +235,19 @@ def _migrate_add_missing_columns():
         with engine.begin() as conn:
             for statement in statements:
                 conn.execute(sa.text(statement))
+
+
+def mark_interrupted_tasks() -> int:
+    """Fails every task still pending or running. Call once at startup."""
+    with Session(engine) as session:
+        stuck = session.exec(select(Task).where(Task.status.in_(["pending", "running"]))).all()
+        for task in stuck:
+            task.status = "failed"
+            task.result = "Interrupted because the server stopped. Run it again."
+            task.updated_at = datetime.now(timezone.utc)
+            session.add(task)
+        session.commit()
+        return len(stuck)
 
 
 def get_session():

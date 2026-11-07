@@ -25,6 +25,7 @@ from src.Agent.read_cv import extract_cv_text
 from src.Agent.scraper import search_all_boards
 from src.api.config import settings
 from src.api.models import (
+    JOB_STATUSES,
     AnswerUpdate,
     ApplicationAnswer,
     Job,
@@ -58,9 +59,12 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def on_startup():
-    from src.api.models import init_db
+    from src.api.models import init_db, mark_interrupted_tasks
 
     init_db()
+    # Background tasks die with the server. Without this, a run that was in
+    # progress at shutdown would show as running in the Ledger forever.
+    mark_interrupted_tasks()
 
 
 # --- Utility Background Tasks ---
@@ -81,7 +85,10 @@ async def run_discovery_task(task_id: str):
             session.commit()
 
         try:
+            latest: dict = {}
+
             async def publish(event: dict):
+                latest.update(event)
                 if not task:
                     return
                 task.progress = json.dumps(event)
@@ -125,8 +132,8 @@ async def run_discovery_task(task_id: str):
                 "phase": "scoring",
                 "found": len(jobs),
                 "message": f"Scoring {len(jobs)} listings against your CV",
-                "boards": {"LinkedIn": "done", "Indeed": "done", "Wellfound": "done"},
-                "counts": {},
+                "boards": latest.get("boards", {}),
+                "counts": latest.get("counts", {}),
             })
 
             # Dedupe postings cross-listed under identical company/title/description
@@ -170,8 +177,12 @@ _OUTCOMES = {
     ),
     "review": "Stopped on Review. Check the form, click Submit yourself, then mark the job Applied.",
     "stopped": "Paused on the open application. Fill anything still blank in the window, then click Continue.",
-    "closed": "The application window was closed, so Apply opened it again.",
 }
+
+# Said before the outcome when the user had closed the window and the agent
+# opened the application again. The outcome itself still decides what the UI
+# does next (a reopened form can still need the review window).
+_REOPENED_NOTE = "The application window was closed, so it was opened again. "
 
 
 def _public_error(exc: Exception) -> str:
@@ -186,12 +197,12 @@ def _public_error(exc: Exception) -> str:
     return first[:300]
 
 
-def _finish_apply_task(session: Session, task: Optional[Task], outcome: str) -> None:
+def _finish_apply_task(session: Session, task: Optional[Task], outcome: str, reopened: bool = False) -> None:
     if not task:
         return
     task.status = "completed"
-    task.progress = json.dumps({"phase": outcome})
-    task.result = _OUTCOMES.get(outcome, _OUTCOMES["stopped"])
+    task.progress = json.dumps({"phase": outcome, "reopened": reopened})
+    task.result = (_REOPENED_NOTE if reopened else "") + _OUTCOMES.get(outcome, _OUTCOMES["stopped"])
     task.updated_at = datetime.now(timezone.utc)
     session.add(task)
     session.commit()
@@ -231,6 +242,7 @@ async def run_application_task(task_id: str, job_id: str):
             if not job:
                 raise RuntimeError("Job not found")
 
+            reopened = await session_registry.drop_if_closed(job_id)
             live = await session_registry.get_session(job_id)
             if live is not None:
                 outcome = await advance_application(
@@ -243,7 +255,7 @@ async def run_application_task(task_id: str, job_id: str):
                     cv_name=cv_name, cv_text=cv_text,
                 )
 
-            _finish_apply_task(session, task, outcome or "stopped")
+            _finish_apply_task(session, task, outcome or "stopped", reopened)
         except Exception as e:
             if task:
                 task.status = "failed"
@@ -272,6 +284,7 @@ async def continue_application_task(task_id: str, job_id: str):
             job = session.get(Job, job_id)
             if not job:
                 raise RuntimeError("Job not found")
+            reopened = await session_registry.drop_if_closed(job_id)
             live = await session_registry.get_session(job_id)
             summary, contact, recurring, cv_path, cv_name, cv_text = await _load_candidate(session)
             if live is None:
@@ -279,7 +292,7 @@ async def continue_application_task(task_id: str, job_id: str):
                     job_id, summary, contact, recurring, cv_path, session,
                     cv_name=cv_name, cv_text=cv_text,
                 )
-                _finish_apply_task(session, task, outcome or "stopped")
+                _finish_apply_task(session, task, outcome or "stopped", reopened)
                 return
             await harvest_user_filled_fields(live["page"], contact, recurring, session)
             outcome = await advance_application(
@@ -323,6 +336,11 @@ async def get_job(job_id: str, session: Session = Depends(get_session)):
 
 @app.patch("/jobs/{job_id}")
 async def update_job_status_api(job_id: str, status: str, session: Session = Depends(get_session)):
+    if status not in JOB_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown status '{status}'. Use one of: {', '.join(JOB_STATUSES)}.",
+        )
     job = update_job_status(job_id, status)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -330,6 +348,7 @@ async def update_job_status_api(job_id: str, status: str, session: Session = Dep
     # Once the human has actually applied (or abandoned the job), there's no
     # reason to keep its browser session open any longer.
     if status == "Applied":
+        await session_registry.drop_if_closed(job_id)
         live_session = await session_registry.get_session(job_id)
         if live_session is not None:
             profile = get_or_create_profile(session)
@@ -436,6 +455,13 @@ async def trigger_discovery(background_tasks: BackgroundTasks):
 
     background_tasks.add_task(run_discovery_task, task_id)
     return {"task_id": task_id, "status": "started"}
+
+
+@app.get("/automation/tasks", response_model=List[Task])
+async def list_tasks(limit: int = 100, session: Session = Depends(get_session)):
+    """Recent discovery and apply runs, newest first, so the Ledger survives a page refresh."""
+    limit = max(1, min(limit, 500))
+    return session.exec(select(Task).order_by(Task.created_at.desc()).limit(limit)).all()
 
 
 @app.get("/automation/tasks/{task_id}")
@@ -551,6 +577,7 @@ async def submit_answers(job_id: str, answers: List[AnswerUpdate], session: Sess
 
     session.commit()
 
+    await session_registry.drop_if_closed(job_id)
     live_session = await session_registry.get_session(job_id)
     if live_session is not None:
         profile = get_or_create_profile(session)

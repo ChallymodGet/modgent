@@ -1,4 +1,5 @@
 from playwright.async_api import async_playwright
+import asyncio
 import re
 from typing import List, Dict, Optional
 from urllib.parse import quote_plus
@@ -191,7 +192,7 @@ async def search_linkedin(keywords: str, location: str, max_jobs: int = 15, on_p
         # Public listings. The saved apply login is currently stuck on a
         # verification challenge, which is why this board was returning 0.
         context, page = await open_browser(
-            p, headless=True, user_data_dir=settings.browser_search_profile_path,
+            p, headless=True, user_data_dir=settings.browser_linkedin_profile_path,
         )
 
         await page.goto(search_url, timeout=60000, wait_until="domcontentloaded")
@@ -435,33 +436,54 @@ async def search_indeed(keywords: str, location: str, max_jobs: int = 15, on_pro
 
     return jobs
 
-async def search_wellfound(keywords: str, location: str, max_jobs: int = 15, role_slug_override: Optional[str] = None, on_progress=None) -> List[Dict]:
+def wellfound_role_slugs(keywords: str) -> List[str]:
+    """
+    Wellfound browses by role page (/role/product-designer), not free text.
+    Each comma-separated target role becomes its own slug.
+    """
+    slugs = []
+    for role in keywords.split(","):
+        slug = re.sub(r"[^a-z0-9]+", "-", role.lower()).strip("-")
+        if slug and slug not in slugs:
+            slugs.append(slug)
+    return slugs
+
+
+async def search_wellfound(keywords: str, location: str, max_jobs: int = 15, on_progress=None) -> List[Dict]:
     jobs = []
-    role_slug = role_slug_override if role_slug_override else keywords.lower().replace(" ", "-")
-    search_url = f"https://wellfound.com/role/{role_slug}"
 
     async with async_playwright() as p:
-        context, page = await open_browser(p)
-
-        await page.goto(search_url, timeout=60000, wait_until="domcontentloaded")
-        print("Wellfound opened!")
-
-        await page.wait_for_timeout(4000)
-        job_links = page.locator("a[href^='/jobs/']")
-        link_count = await job_links.count()
-        print(f"Found {link_count} job links.")
-        await _tick(on_progress, 0)
+        context, page = await open_browser(p, user_data_dir=settings.browser_wellfound_profile_path)
 
         collected_urls = []
         collected_titles = []
 
-        for i in range(min(link_count, max_jobs)):
-            href = await job_links.nth(i).get_attribute("href")
-            title_text = (await job_links.nth(i).inner_text()).strip()
+        for role_slug in wellfound_role_slugs(keywords):
+            if len(collected_urls) >= max_jobs:
+                break
+            search_url = f"https://wellfound.com/role/{role_slug}"
+            try:
+                await page.goto(search_url, timeout=60000, wait_until="domcontentloaded")
+            except Exception as e:
+                print(f"Could not open Wellfound role {role_slug}: {e}")
+                continue
+            print(f"Wellfound opened: {role_slug}")
 
-            if href and href not in collected_urls:
-                collected_urls.append(href)
-                collected_titles.append(title_text)
+            await page.wait_for_timeout(4000)
+            job_links = page.locator("a[href^='/jobs/']")
+            link_count = await job_links.count()
+            print(f"Found {link_count} job links.")
+            await _tick(on_progress, 0)
+
+            for i in range(link_count):
+                if len(collected_urls) >= max_jobs:
+                    break
+                href = await job_links.nth(i).get_attribute("href")
+                title_text = (await job_links.nth(i).inner_text()).strip()
+
+                if href and href not in collected_urls:
+                    collected_urls.append(href)
+                    collected_titles.append(title_text)
 
         print(f"Collected {len(collected_urls)} unique job links.")
 
@@ -561,29 +583,30 @@ async def search_all_boards(keywords: str, location: str, max_jobs_per_board: in
             await emit(board, phase, message)
         return _on_event
 
-    print("\n=== Searching LinkedIn ===")
-    await emit("LinkedIn", "opening", "Opening LinkedIn")
-    linkedin_jobs = await search_linkedin(keywords, location, max_jobs_per_board, on_progress=await track("LinkedIn"))
-    counts["LinkedIn"] = len(linkedin_jobs)
-    await emit("LinkedIn", "done", f"LinkedIn done · {len(linkedin_jobs)} listings")
-    all_jobs.extend(linkedin_jobs)
+    searches = {
+        "LinkedIn": search_linkedin,
+        "Indeed": search_indeed,
+        "Wellfound": search_wellfound,
+    }
 
-    print("\n=== Searching Indeed ===")
-    await emit("Indeed", "opening", "Opening Indeed")
-    indeed_jobs = await search_indeed(keywords, location, max_jobs_per_board, on_progress=await track("Indeed"))
-    counts["Indeed"] = len(indeed_jobs)
-    await emit("Indeed", "done", f"Indeed done · {len(indeed_jobs)} listings")
-    all_jobs.extend(indeed_jobs)
+    async def run(board: str) -> List[Dict]:
+        # Each board uses its own browser profile, so all three run at once.
+        # One board failing must not throw away the others' results.
+        print(f"\n=== Searching {board} ===")
+        await emit(board, "opening", f"Opening {board}")
+        try:
+            found = await searches[board](
+                keywords, location, max_jobs_per_board, on_progress=await track(board),
+            )
+        except Exception as e:
+            print(f"{board} search failed: {e}")
+            await emit(board, "failed", f"{board} could not be searched")
+            return []
+        counts[board] = len(found)
+        await emit(board, "done", f"{board} done · {len(found)} listings")
+        return found
 
-    print("\n=== Searching Wellfound ===")
-    await emit("Wellfound", "opening", "Opening Wellfound")
-    wellfound_jobs = await search_wellfound(
-        keywords, location, max_jobs_per_board,
-        role_slug_override="product-designer",
-        on_progress=await track("Wellfound"),
-    )
-    counts["Wellfound"] = len(wellfound_jobs)
-    await emit("Wellfound", "done", f"Wellfound done · {len(wellfound_jobs)} listings")
-    all_jobs.extend(wellfound_jobs)
+    for found in await asyncio.gather(*(run(board) for board in boards)):
+        all_jobs.extend(found)
 
     return all_jobs
